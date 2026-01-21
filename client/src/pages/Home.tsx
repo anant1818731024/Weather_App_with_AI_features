@@ -72,7 +72,7 @@ export default function Home() {
             </div>
             
             <a 
-              href="https://github.com/replit/atmosphere" 
+              href="https://github.com/anant1818731024/Weather_App_with_AI_features" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground transition-colors"
