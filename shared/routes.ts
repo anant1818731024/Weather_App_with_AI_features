@@ -1,11 +1,13 @@
 import { z } from 'zod';
-import { insertLocationSchema, locations } from './schema';
+import { changePasswordSchema, insertLocationSchema, locations, loginSchema, publicUserSchema, registerSchema } from './schema';
+import { log } from 'console';
+import path from 'path';
 
 export const api = {
   locations: {
     list: {
       method: 'GET' as const,
-      path: '/api/locations',
+      path: '/api/locations/:userId',
       responses: {
         200: z.array(z.custom<typeof locations.$inferSelect>()),
       },
@@ -21,7 +23,7 @@ export const api = {
     },
     delete: {
       method: 'DELETE' as const,
-      path: '/api/locations/:id',
+      path: '/api/locations/:id/:userId',
       responses: {
         204: z.void(),
         404: z.object({ message: z.string() }),
@@ -49,6 +51,53 @@ export const api = {
       responses: {
         200: z.any(), // Returns geocoding results
       },
+    },
+  },
+
+  auth: {
+    register: {
+      method: "POST" as const,
+      path: "/api/auth/register",
+      input: registerSchema,
+      responses: {
+        201: publicUserSchema,
+        400: z.object({ message: z.string() }),
+      },
+    },
+
+    login: {
+      method: "POST" as const,
+      path: "/api/auth/login",
+      input: loginSchema,
+      responses: {
+        200: z.object({ token: z.string() }),
+        401: z.object({ message: z.string() }),
+      },
+    },
+
+    me: {
+      method: "GET" as const,
+      path: "/api/auth/me",
+      responses: {
+        200: publicUserSchema,
+        401: z.object({ message: z.string() }),
+      },
+    }, logout: {
+      method: "POST" as const,
+      path: "/api/auth/logout",
+      responses: {
+        200: z.object({ message: z.string() }),
+      },
+    },
+  },
+
+  changePassword: {
+    method: "POST" as const,
+    path: "/api/auth/change-password",
+    input: changePasswordSchema,
+    responses: {
+      200: z.object({ message: z.string() }),
+      401: z.object({ message: z.string() }),
     },
   },
 };

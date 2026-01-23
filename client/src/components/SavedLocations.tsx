@@ -6,20 +6,25 @@ import { useToast } from "@/hooks/use-toast";
 interface SavedLocationsProps {
   onSelect: (location: Location) => void;
   currentLocationId?: number;
+  setIsFavorite: (isFav: boolean) => void;
+  activeLocation: Location | any;
 }
 
-export function SavedLocations({ onSelect, currentLocationId }: SavedLocationsProps) {
+export function SavedLocations({ activeLocation, setIsFavorite, onSelect, currentLocationId }: SavedLocationsProps) {
   const { data: locations, isLoading } = useLocations();
   const deleteMutation = useDeleteLocation();
   const { toast } = useToast();
 
-  const handleDelete = async (e: React.MouseEvent, id: number, name: string) => {
+  const handleDelete = async (e: React.MouseEvent, loc: Location) => {
     e.stopPropagation();
     try {
-      await deleteMutation.mutateAsync(id);
+      await deleteMutation.mutateAsync(loc.id);
+      if (activeLocation && activeLocation.latitude === loc.latitude && activeLocation.longitude === loc.longitude) {
+        setIsFavorite(false);
+      }
       toast({
         title: "Removed",
-        description: `${name} has been removed from favorites.`,
+        description: `${loc.name} has been removed from favorites.`,
       });
     } catch {
       toast({
@@ -84,7 +89,7 @@ export function SavedLocations({ onSelect, currentLocationId }: SavedLocationsPr
             )}
             
             <button
-              onClick={(e) => handleDelete(e, loc.id, loc.name)}
+              onClick={(e) => handleDelete(e, loc)}
               disabled={deleteMutation.isPending}
               className={`
                 p-2 rounded-full transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100

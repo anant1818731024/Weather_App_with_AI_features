@@ -39,9 +39,9 @@ export interface GeocodingResult {
 
 export function useLocations() {
   return useQuery({
-    queryKey: [api.locations.list.path],
+    queryKey: [api.locations.list.path.slice(0, -8)],
     queryFn: async () => {
-      const res = await fetch(api.locations.list.path);
+      const res = await fetch(api.locations.list.path.slice(0, -8) + "/" + localStorage.getItem("userId"));
       if (!res.ok) throw new Error("Failed to fetch locations");
       return api.locations.list.responses[200].parse(await res.json());
     },
@@ -59,9 +59,10 @@ export function useAddLocation() {
         body: JSON.stringify(validated),
       });
       if (!res.ok) throw new Error("Failed to add location");
-      return api.locations.create.responses[201].parse(await res.json());
+      const parsedRes = api.locations.create.responses[201].parse(await res.json());
+      return parsedRes;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.locations.list.path] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.locations.list.path.slice(0, -8)] }),
   });
 }
 
@@ -69,11 +70,11 @@ export function useDeleteLocation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
-      const url = buildUrl(api.locations.delete.path, { id });
+      const url = api.locations.delete.path.slice(0, -12)+ "/" + id + "/" + localStorage.getItem("userId");
       const res = await fetch(url, { method: api.locations.delete.method });
       if (!res.ok) throw new Error("Failed to delete location");
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.locations.list.path] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.locations.list.path.slice(0, -8)] }),
   });
 }
 
@@ -88,7 +89,9 @@ export function useForecast(lat: number, lon: number) {
       if (!res.ok) throw new Error("Failed to fetch forecast");
       // Typing this loosely as the Open-Meteo response structure is complex
       // In a real production app, we would have a strict Zod schema for this too
-      return (await res.json()) as WeatherData;
+      const response = await res.json();
+      console.log("response", res, response);
+      return response as WeatherData;
     },
     enabled: !!lat && !!lon,
   });

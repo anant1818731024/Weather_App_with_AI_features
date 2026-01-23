@@ -5,11 +5,15 @@ import { DailyForecast } from "@/components/DailyForecast";
 import { SavedLocations } from "@/components/SavedLocations";
 import { useForecast, useAddLocation, type GeocodingResult } from "@/hooks/use-weather";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Star, Github } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { Loader2, Star, Github, LogOut, User as UserIcon, Settings } from "lucide-react";
 import { type Location } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { queryClient } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 
 // Default location (New York)
-const DEFAULT_LOC = {
+const DEFAULT_LOC: any = {
   name: "New York",
   latitude: 40.7143,
   longitude: -74.006,
@@ -18,28 +22,63 @@ const DEFAULT_LOC = {
 };
 
 export default function Home() {
+  const { user, logoutMutation } = useAuth();
   const [activeLocation, setActiveLocation] = useState<GeocodingResult | Location>(DEFAULT_LOC);
   const [isFavorite, setIsFavorite] = useState(false);
   
   const { data: weather, isLoading, error } = useForecast(activeLocation.latitude, activeLocation.longitude);
   const addLocationMutation = useAddLocation();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (user && locationExists(user.id, activeLocation.latitude, activeLocation.longitude)) {
+      setIsFavorite(true);
+    } else {
+      setIsFavorite(false);
+    }
+  }, [activeLocation, user, weather]);
 
   const handleLocationSelect = (loc: GeocodingResult | Location) => {
     setActiveLocation(loc);
-    // Simple way to reset favorite state - ideally we'd check against saved locations list
-    // simplified for this demo
-    setIsFavorite(false); 
   };
+
+  function locationExists(
+    userId: number,
+    latitude: number,
+    longitude: number
+  ) {
+    const locations =
+      queryClient.getQueryData<Location[]>(["/api/locations"]) ?? [];
+    const location = locations.some(
+      (loc) =>
+        loc.userId === userId &&
+        loc.latitude === latitude &&
+        loc.longitude === longitude
+    );
+    console.log("Location exists:", location);
+    return location;
+  }
+
 
   const handleSaveLocation = async () => {
     try {
+      const exists = locationExists(
+        user!.id,
+        activeLocation.latitude,
+        activeLocation.longitude
+      );
+
+      if (exists) {
+        throw new Error("Location already exists");
+      }
       await addLocationMutation.mutateAsync({
         name: activeLocation.name,
         latitude: activeLocation.latitude,
         longitude: activeLocation.longitude,
         country: activeLocation.country || null,
         admin1: activeLocation.admin1 || null,
+        userId: user!.id,
       });
       setIsFavorite(true);
       toast({
@@ -61,7 +100,7 @@ export default function Home() {
         
         {/* Sidebar / Top bar on mobile */}
         <div className="lg:col-span-4 space-y-8">
-          <header className="flex items-center justify-between mb-8">
+          <header className="flex lg:flex-wrap items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="bg-primary text-primary-foreground p-2 rounded-xl">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 19c0-1.7-1.3-3-3-3h-1.1c-.8-3.2-3.7-5.6-7.1-5.6H6c-3.3 0-6 2.7-6 6s2.7 6 6 6h11.5c1.9 0 3.5-1.6 3.5-3.5Z"/><path d="M22 10.5V6a2 2 0 0 0-2-2h-3l-2.5-3H9.5L7 4H4a2 2 0 0 0-2 2v2"/><path d="M16 10a4 4 0 0 0-4-4"/></svg>
@@ -71,14 +110,36 @@ export default function Home() {
               </h1>
             </div>
             
-            <a 
-              href="https://github.com/anant1818731024/Weather_App_with_AI_features" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Github className="w-5 h-5" />
-            </a>
+            <div className="flex lg:w-full items-center gap-4 lg:mt-2">
+              <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
+                <UserIcon className="w-4 h-4" />
+                <span>{user?.username}</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setLocation("/profile")}
+                title="Profile Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => logoutMutation.mutate()}
+                title="Logout"
+              >
+                <LogOut className="w-5 h-5" />
+              </Button>
+              <a 
+                href="https://github.com/replit/atmosphere" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Github className="w-5 h-5" />
+              </a>
+            </div>
           </header>
 
           <SearchBar onSelectLocation={handleLocationSelect} />
@@ -90,6 +151,8 @@ export default function Home() {
             <SavedLocations 
               onSelect={handleLocationSelect} 
               currentLocationId={'id' in activeLocation ? activeLocation.id : undefined}
+              setIsFavorite={setIsFavorite}
+              activeLocation={activeLocation}
             />
           </div>
         </div>
@@ -129,12 +192,12 @@ export default function Home() {
 
               <div className="relative group">
                 {/* Desktop Save Button overlay */}
-                <div className="absolute top-6 right-6 z-20 hidden lg:block">
+                <div className="absolute top-4 right-6 z-20 hidden lg:block">
                    <button
                     onClick={handleSaveLocation}
                     disabled={addLocationMutation.isPending || isFavorite}
                     className={`
-                      p-3 rounded-full transition-all duration-300 shadow-sm
+                      relative bottom-1 p-3 rounded-full transition-all duration-300 shadow-sm
                       ${isFavorite 
                         ? "bg-yellow-400 text-yellow-900 cursor-default" 
                         : "bg-white/20 hover:bg-white/40 text-foreground backdrop-blur-md"
@@ -162,6 +225,8 @@ export default function Home() {
             <SavedLocations 
               onSelect={handleLocationSelect}
               currentLocationId={'id' in activeLocation ? activeLocation.id : undefined}
+              setIsFavorite={setIsFavorite}
+              activeLocation={activeLocation}
             />
           </div>
         </div>

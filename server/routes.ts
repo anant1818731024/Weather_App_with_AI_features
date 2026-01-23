@@ -3,14 +3,20 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import * as auth from "./auth";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   // Locations API
-  app.get(api.locations.list.path, async (_req, res) => {
-    const locations = await storage.getLocations();
+  app.get(api.locations.list.path, async (req, res) => {
+    const userId = Number(req.params.userId);
+
+    if (Number.isNaN(userId)) {
+      res.status(400).json({ message: "Invalid userId" });
+    }
+    const locations = await storage.getLocations(userId);
     res.json(locations);
   });
 
@@ -29,10 +35,12 @@ export async function registerRoutes(
 
   app.delete(api.locations.delete.path, async (req, res) => {
     const id = parseInt(req.params.id as string);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid ID" });
+    const userId = parseInt(req.params.userId as string);
+
+    if (isNaN(userId) || isNaN(id)) {
+      return res.status(400).json({ message: "location not found" });
     }
-    await storage.deleteLocation(id);
+    await storage.deleteLocation(id, userId);
     res.status(204).end();
   });
 
@@ -63,5 +71,13 @@ export async function registerRoutes(
     }
   });
 
+  app.post(api.auth.register.path, auth.register);
+  app.post(api.auth.login.path, auth.login);
+  app.get(api.auth.me.path, auth.authMiddleware, auth.me);
+  app.post(api.changePassword.path, auth.authMiddleware, auth.changePassword);
+  app.post(api.auth.logout.path, auth.authMiddleware, auth.logout);
+
   return httpServer;
 }
+
+
