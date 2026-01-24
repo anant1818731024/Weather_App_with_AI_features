@@ -1,7 +1,13 @@
 import { pgTable, text, serial, real, integer, timestamp, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+import { z, ZodTypeAny } from "zod";
 import { relations } from "drizzle-orm";
+
+export const emptyStringToUndefined = <T extends ZodTypeAny>(schema: T) =>
+  z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    schema
+  );
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -40,7 +46,7 @@ export const locationsRelations = relations(locations, ({ one }) => ({
 
 
 
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true, updatedAt: true, tokenVersion: true });
 export const insertLocationSchema = createInsertSchema(locations).omit({ id: true });
 
 export type User = typeof users.$inferSelect;
@@ -135,8 +141,7 @@ export const jwtPayloadSchema = z.object({
   tokenVersion: z.number(),
 });
 
-
-
+export const updateUserSchema = registerSchema.partial().omit({ password: true });
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -144,3 +149,4 @@ export type LoginWithEmailInput = z.infer<typeof loginWithEmailSchema>;
 export type PublicUser = z.infer<typeof publicUserSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type JWTPayload = z.infer<typeof jwtPayloadSchema>;
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;

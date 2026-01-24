@@ -2,25 +2,40 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { publicUserSchema } from "@shared/schema";
+import { UpdateUserInput } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, ArrowLeft, User as UserIcon, Mail, ShieldCheck } from "lucide-react";
 import { useLocation } from "wouter";
 import { z } from "zod";
 import { api } from "@shared/routes";
+import { on } from "events";
 
 /* ---------------- Password Schema ---------------- */
 
 const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z.string().min(6, "New password must be at least 6 characters"),
-    confirmPassword: z.string().min(6),
+    newPassword: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(100, "Password must be less than 100 characters")
+      .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+      .regex(/[0-9]/, "Password must contain at least one number")
+      .regex(
+        /[^A-Za-z0-9]/,
+        "Password must contain at least one special character"
+      )
+      .refine((val) => !/\s/.test(val), {
+        message: "Password must not contain spaces",
+      }),
+    confirmPassword: z.string().min(8, "Password must be at least 8 characters")
+      .max(100, "Password must be less than 100 characters"),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
     message: "Passwords do not match",
@@ -34,16 +49,18 @@ export default function ProfilePage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isProfileUpdating, setIsProfileUpdating] = useState(false);
 
   /* ---------------- Read-only Profile Form ---------------- */
 
-  const profileForm = useForm<z.infer<typeof publicUserSchema>>({
-    resolver: zodResolver(publicUserSchema),
+  const profileForm = useForm<z.infer<typeof api.user.update.input>>({
+    resolver: zodResolver(api.user.update.input),
     defaultValues: {
       username: "",
       email: "",
       firstName: "",
       lastName: "",
+      profileImageUrl: "",
     },
   });
 
@@ -54,9 +71,11 @@ export default function ProfilePage() {
                 email: user.email ?? "",
                 firstName: user.firstName ?? "",
                 lastName: user.lastName ?? "",
+                profileImageUrl: user.profileImageUrl ?? "",
             });
 
         }
+        console.log("User data loaded into form:", user);
     }, [user, profileForm]);
 
   /* ---------------- Password Form ---------------- */
@@ -76,7 +95,7 @@ export default function ProfilePage() {
         const headers = {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
         }
-      await apiRequest("Post", api.changePassword.path, {
+      await apiRequest("Post", api.user.changePassword.path, {
         currentPassword: data.currentPassword,
         newPassword: data.newPassword,
       }, headers);
@@ -93,6 +112,32 @@ export default function ProfilePage() {
       setIsUpdatingPassword(false);
     }
   };
+
+  const onProfileUpdate = async (data: UpdateUserInput) => {
+    setIsProfileUpdating(true);
+    try {
+        const headers = {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+        }
+        if(user?.username === data.username){
+            delete data.username;
+        }
+        if(user?.email === data.email){
+            delete data.email;
+        }
+      const updatedUser = await apiRequest("PATCH", api.user.update.path, data, headers);
+      queryClient.setQueryData([api.auth.me.path], await updatedUser.json());
+      toast({ title: "Profile updated successfully" });
+    } catch (error: any) {
+      toast({
+        title: "Profile update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsProfileUpdating(false);
+    }
+  }
 
   /* ---------------- UI ---------------- */
 
@@ -123,7 +168,7 @@ export default function ProfilePage() {
 
               <CardContent>
                 <Form {...profileForm}>
-                  <form className="space-y-4">
+                  <form onSubmit={profileForm.handleSubmit(onProfileUpdate)} className="space-y-4">
                     <FormField
                       control={profileForm.control}
                       name="username"
@@ -131,7 +176,7 @@ export default function ProfilePage() {
                         <FormItem>
                           <FormLabel>Username</FormLabel>
                           <FormControl>
-                            <Input {...field} disabled />
+                            <Input {...field}/>
                           </FormControl>
                         </FormItem>
                       )}
@@ -145,7 +190,7 @@ export default function ProfilePage() {
                           <FormItem>
                             <FormLabel>First Name</FormLabel>
                             <FormControl>
-                              <Input {...field} disabled />
+                              <Input {...field} />
                             </FormControl>
                           </FormItem>
                         )}
@@ -157,7 +202,7 @@ export default function ProfilePage() {
                           <FormItem>
                             <FormLabel>Last Name</FormLabel>
                             <FormControl>
-                              <Input {...field} disabled />
+                              <Input {...field} />
                             </FormControl>
                           </FormItem>
                         )}
@@ -173,12 +218,32 @@ export default function ProfilePage() {
                           <FormControl>
                             <div className="relative">
                               <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                              <Input className="pl-10" {...field} disabled />
+                              <Input className="pl-10" {...field} />
                             </div>
                           </FormControl>
                         </FormItem>
                       )}
                     />
+
+                    <FormField
+                      control={profileForm.control}
+                      name="profileImageUrl"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Profile Image URL</FormLabel>
+                          <FormControl>
+                            <Input placeholder="https://example.com/avatar.png" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="submit" variant="outline" disabled={isProfileUpdating}>
+                      {isProfileUpdating && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Update Profile
+                    </Button> 
                   </form>
                 </Form>
               </CardContent>

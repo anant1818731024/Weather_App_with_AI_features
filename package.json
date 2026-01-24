@@ -4,10 +4,10 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "DATABASE_URL=postgresql://shambho@localhost:5432/Weather_App NODE_ENV=development node dist/index.cjs",
+    "dev": "NODE_ENV=development node dist/index.cjs",
     "build": "tsx script/build.ts",
     "buildAndDev": "npm run build && npm run dev",
-    "start": "DATABASE_URL=postgresql://shambho:E2mPAOP7SHwXM93OAW0mUa6KG4Uv71Eq@dpg-d5o2culactks738reme0-a.oregon-postgres.render.com/weather_app_k489 NODE_ENV=production node dist/index.cjs",
+    "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
     "db:push": "drizzle-kit push"
   },
@@ -64,6 +64,7 @@
     "memoizee": "^0.4.17",
     "memorystore": "^1.6.7",
     "next-themes": "^0.4.6",
+    "openai": "^6.16.0",
     "openid-client": "^6.8.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

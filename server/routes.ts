@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import * as auth from "./auth";
+import { weatherAdvice } from "./ai/weather-advice";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -74,8 +75,17 @@ export async function registerRoutes(
   app.post(api.auth.register.path, auth.register);
   app.post(api.auth.login.path, auth.login);
   app.get(api.auth.me.path, auth.authMiddleware, auth.me);
-  app.post(api.changePassword.path, auth.authMiddleware, auth.changePassword);
+  app.post(api.user.changePassword.path, auth.authMiddleware, auth.changePassword);
   app.post(api.auth.logout.path, auth.authMiddleware, auth.logout);
+  app.patch(api.user.update.path, auth.authMiddleware, auth.updateUser);
+
+
+  app.post(
+    api.ai.weatherAdvice.path,
+    weatherAdvice
+  );
+
+
 
   return httpServer;
 }

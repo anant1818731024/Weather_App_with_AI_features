@@ -17,7 +17,9 @@ export default function AuthPage() {
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    console.log("User changed:", user);
+    if(user){
+      setLocation("/");
+    }
   }, [user]);
 
   if (user) {

@@ -1,7 +1,5 @@
 import { z } from 'zod';
-import { changePasswordSchema, insertLocationSchema, locations, loginSchema, publicUserSchema, registerSchema } from './schema';
-import { log } from 'console';
-import path from 'path';
+import { changePasswordSchema, insertLocationSchema, locations, loginSchema, publicUserSchema, registerSchema, updateUserSchema } from './schema';
 
 export const api = {
   locations: {
@@ -91,13 +89,45 @@ export const api = {
     },
   },
 
-  changePassword: {
-    method: "POST" as const,
-    path: "/api/auth/change-password",
-    input: changePasswordSchema,
-    responses: {
-      200: z.object({ message: z.string() }),
-      401: z.object({ message: z.string() }),
+  user: {
+    update: {
+      method: "PATCH" as const,
+      path: "/api/user",
+      input: updateUserSchema,
+      responses: {
+        200: publicUserSchema,
+        401: z.object({ message: z.string() }),
+      },
+    },
+    changePassword: {
+      method: "POST" as const,
+      path: "/api/auth/change-password",
+      input: changePasswordSchema,
+      responses: {
+        200: z.object({ message: z.string() }),
+        401: z.object({ message: z.string() }),
+      },
+    },
+  },
+  ai: {
+    weatherAdvice: {
+      method: "POST" as const,
+      path: "/api/ai/weather-advice",
+      input: z.object({
+        question: z.string().min(1),
+        weather: z.object({
+          location: z.string(),
+          temperature: z.number(),
+          windSpeed: z.number(),
+          weatherCode: z.number(),
+        }),
+      }),
+      responses: {
+        200: z.object({
+          answer: z.string(),
+        }),
+        400: z.object({ message: z.string() }),
+      },
     },
   },
 };

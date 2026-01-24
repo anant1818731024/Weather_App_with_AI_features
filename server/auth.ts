@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 import { db } from "./db";
-import { changePasswordSchema, users } from "@shared/schema";
+import { changePasswordSchema, updateUserSchema, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
 // assumed to already exist
@@ -13,6 +13,7 @@ import {
   publicUserSchema,
   jwtPayloadSchema,
 } from "@shared/schema";
+import { storage } from "./storage";
 
 /* ------------------------------------------------------------------ */
 /* Config */
@@ -46,6 +47,24 @@ function signToken(payload: z.infer<typeof jwtPayloadSchema>) {
   });
 }
 
+export async function checkExistingUsername(username: string) {
+  const rows = await db
+    .select()
+    .from(users)
+    .where(eq(users.username, username))
+    .limit(1);
+  return rows.length > 0;
+} 
+
+export async function checkExistingEmail(email: string) {
+  const rows = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  return rows.length > 0;
+}
+
 /* ------------------------------------------------------------------ */
 /* Routes */
 /* ------------------------------------------------------------------ */
@@ -56,17 +75,12 @@ function signToken(payload: z.infer<typeof jwtPayloadSchema>) {
 export async function register(req: Request, res: Response) {
   const input = registerSchema.parse(req.body);
 
-  //Check if username already exists
-  const existingUser = await db
-    .select()
-    .from(users)
-    .where(eq(users.username, input.username))
-    .limit(1);
+  if (await checkExistingUsername(input.username)) {
+    return res.status(400).json({ message: "Username already exists" });
+  }
 
-  if (existingUser.length > 0) {
-    return res.status(409).json({
-      message: "Username already exists",
-    });
+  if (input.email && await checkExistingEmail(input.email)) {
+    return res.status(400).json({ message: "Email already exists" });
   }
 
   const passwordHash = await bcrypt.hash(input.password, 10);
@@ -196,6 +210,28 @@ export async function logout(req: AuthRequest, res: Response) {
 
   } catch (error) {
     return res.status(500).json({ message: "Error Logging out" });
+  }
+}
+
+export async function updateUser(req: AuthRequest, res: Response) {
+  try {
+    const userId = req.user!.id;
+    const input = updateUserSchema.parse(req.body);
+    const updatedUser = await storage.updateUser(userId, input);
+
+    res.json({
+      id: updatedUser.id,
+      username: updatedUser.username,
+      email: updatedUser.email,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      profileImageUrl: updatedUser.profileImageUrl,
+    });
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ message: err.message });
+    }
+    throw err;
   }
 }
 

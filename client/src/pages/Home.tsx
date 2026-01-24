@@ -6,25 +6,29 @@ import { SavedLocations } from "@/components/SavedLocations";
 import { useForecast, useAddLocation, type GeocodingResult } from "@/hooks/use-weather";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Loader2, Star, Github, LogOut, User as UserIcon, Settings } from "lucide-react";
+import { Loader2, Star, LogOut, User as UserIcon, Settings } from "lucide-react";
 import { type Location } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
+import { WeatherChat } from "@/components/WeatherChat";
+import { AiFillRobot } from "react-icons/ai";
 
 // Default location (New York)
 const DEFAULT_LOC: any = {
-  name: "New York",
-  latitude: 40.7143,
-  longitude: -74.006,
-  country: "United States",
-  admin1: "New York"
+  name: "Delhi",
+  latitude: 28.65195,
+  longitude: 77.23149,
+  country: "India",
+  admin1: "Delhi"
 };
 
 export default function Home() {
   const { user, logoutMutation } = useAuth();
   const [activeLocation, setActiveLocation] = useState<GeocodingResult | Location>(DEFAULT_LOC);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isBotOpen, setIsBotOpen] = useState(false);
+
   
   const { data: weather, isLoading, error } = useForecast(activeLocation.latitude, activeLocation.longitude);
   const addLocationMutation = useAddLocation();
@@ -62,6 +66,15 @@ export default function Home() {
 
 
   const handleSaveLocation = async () => {
+    if(!user) {
+      toast({
+        variant: "destructive",
+        title: "Not Logged In",
+        description: "Please log in to save locations.",
+      });
+      setLocation("/auth");
+      return;
+    }
     try {
       const exists = locationExists(
         user!.id,
@@ -96,21 +109,25 @@ export default function Home() {
 
   return (
     <div className="min-h-screen p-4 md:p-8 lg:p-12 font-sans text-foreground">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 gap-8">
         
         {/* Sidebar / Top bar on mobile */}
-        <div className="lg:col-span-4 space-y-8">
-          <header className="flex lg:flex-wrap items-center justify-between mb-8">
+        <div className="space-y-8">
+          <header className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="bg-primary text-primary-foreground p-2 rounded-xl">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 19c0-1.7-1.3-3-3-3h-1.1c-.8-3.2-3.7-5.6-7.1-5.6H6c-3.3 0-6 2.7-6 6s2.7 6 6 6h11.5c1.9 0 3.5-1.6 3.5-3.5Z"/><path d="M22 10.5V6a2 2 0 0 0-2-2h-3l-2.5-3H9.5L7 4H4a2 2 0 0 0-2 2v2"/><path d="M16 10a4 4 0 0 0-4-4"/></svg>
               </div>
-              <h1 className="text-2xl font-bold font-display tracking-tight text-foreground">
-                Atmosphere
+              <h1 className="gap-2 lg:gap-4 flex justify-between text-2xl font-bold font-display tracking-tight text-foreground">
+                <span className="inline-flex items-center">Atmosphere</span> 
+                {!user && <span ><button onClick={() => setLocation("/auth")} className="ml-[30px] text-primary font-semibold underline underline-offset-4">
+                  Login/Sign up
+                </button>
+                </span>}
               </h1>
             </div>
             
-            <div className="flex lg:w-full items-center gap-4 lg:mt-2">
+            {user && <div className="flex items-center gap-4 lg:mt-2">
               <div className="hidden sm:flex items-center gap-2 text-sm text-muted-foreground">
                 <UserIcon className="w-4 h-4" />
                 <span>{user?.username}</span>
@@ -131,30 +148,12 @@ export default function Home() {
               >
                 <LogOut className="w-5 h-5" />
               </Button>
-              <a 
-                href="https://github.com/replit/atmosphere" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Github className="w-5 h-5" />
-              </a>
-            </div>
+            </div>}
           </header>
 
           <SearchBar onSelectLocation={handleLocationSelect} />
 
-          <div className="hidden lg:block space-y-4">
-            <div className="flex items-center justify-between px-1">
-              <h3 className="font-bold text-lg">Saved Locations</h3>
-            </div>
-            <SavedLocations 
-              onSelect={handleLocationSelect} 
-              currentLocationId={'id' in activeLocation ? activeLocation.id : undefined}
-              setIsFavorite={setIsFavorite}
-              activeLocation={activeLocation}
-            />
-          </div>
+
         </div>
 
         {/* Main Content Area */}
@@ -219,8 +218,7 @@ export default function Home() {
             </div>
           ) : null}
 
-          {/* Mobile Only Saved Locations (shown below content) */}
-          <div className="lg:hidden mt-12 pt-8 border-t border-black/5">
+          {user && <div className="mt-12 pt-8 border-t border-black/5">
             <h3 className="font-bold text-lg mb-4">Saved Locations</h3>
             <SavedLocations 
               onSelect={handleLocationSelect}
@@ -228,9 +226,41 @@ export default function Home() {
               setIsFavorite={setIsFavorite}
               activeLocation={activeLocation}
             />
-          </div>
+          </div>}
         </div>
       </div>
+      {weather && (
+  <>
+    {/* Floating Bot Button */}
+    <button
+      onClick={() => setIsBotOpen((v) => !v)}
+      className="
+        fixed bottom-6 right-6 z-50
+        flex items-center gap-3
+        px-5 py-3 rounded-full
+        bg-primary text-primary-foreground
+        shadow-xl hover:scale-105 active:scale-95
+        transition-all
+      "
+    >
+      <AiFillRobot className="w-5 h-5" />
+      <span className="hidden md:inline font-semibold">
+        Weather Assistant
+      </span>
+    </button>
+
+          {/* Floating Chat */}
+          <WeatherChat
+            weather={{
+              location: activeLocation.name,
+              timestamp: new Date().toString(),
+            }}
+            open={isBotOpen}
+            onClose={() => setIsBotOpen(false)}
+          />
+        </>
+      )}
+
     </div>
   );
 }
