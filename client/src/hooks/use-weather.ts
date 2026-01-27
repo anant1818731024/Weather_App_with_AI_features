@@ -90,7 +90,6 @@ export function useForecast(lat: number, lon: number) {
       // Typing this loosely as the Open-Meteo response structure is complex
       // In a real production app, we would have a strict Zod schema for this too
       const response = await res.json();
-      console.log("response", res, response);
       return response as WeatherData;
     },
     enabled: !!lat && !!lon,

@@ -75,7 +75,6 @@ export default function ProfilePage() {
             });
 
         }
-        console.log("User data loaded into form:", user);
     }, [user, profileForm]);
 
   /* ---------------- Password Form ---------------- */

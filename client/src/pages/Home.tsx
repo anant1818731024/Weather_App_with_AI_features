@@ -13,6 +13,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import { WeatherChat } from "@/components/WeatherChat";
 import { AiFillRobot } from "react-icons/ai";
+import { useViewport } from "@/hooks/use-viewport";
 
 // Default location (New York)
 const DEFAULT_LOC: any = {
@@ -29,6 +30,8 @@ export default function Home() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [isBotOpen, setIsBotOpen] = useState(false);
 
+  const { vw } = useViewport();
+
   
   const { data: weather, isLoading, error } = useForecast(activeLocation.latitude, activeLocation.longitude);
   const addLocationMutation = useAddLocation();
@@ -42,6 +45,19 @@ export default function Home() {
       setIsFavorite(false);
     }
   }, [activeLocation, user, weather]);
+
+  useEffect(() => {
+    if (isBotOpen && vw < 768) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    // cleanup in case component unmounts
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isBotOpen, vw]);
 
   const handleLocationSelect = (loc: GeocodingResult | Location) => {
     setActiveLocation(loc);
@@ -60,7 +76,6 @@ export default function Home() {
         loc.latitude === latitude &&
         loc.longitude === longitude
     );
-    console.log("Location exists:", location);
     return location;
   }
 

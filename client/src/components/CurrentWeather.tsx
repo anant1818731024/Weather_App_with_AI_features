@@ -8,7 +8,6 @@ interface CurrentWeatherProps {
 }
 
 export function CurrentWeather({ data, locationName }: CurrentWeatherProps) {
-  console.log("CurrentWeather data:", data);
   const current = data.current;
   const today = data.daily;
 

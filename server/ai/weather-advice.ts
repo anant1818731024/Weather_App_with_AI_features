@@ -7,15 +7,11 @@ export async function weatherAdvice(req: Request, res: Response) {
     const { question, weather } = req.body;
 
     const prompt = buildWeatherPrompt(question, weather);
-    console.log("Weather Prompt:", prompt);
-    console.log("OPENAI_API_KEY exists:", !!process.env.OPENAI_API_KEY);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-5-mini",
       messages: [{ role: "user", content: prompt }]
     });
-
-    console.log("OpenAI Response:", completion);
 
     res.json({
       answer:
@@ -23,8 +19,6 @@ export async function weatherAdvice(req: Request, res: Response) {
         "No advice available.",
     });
   } catch (err: any) {
-    console.error("OPENAI ERROR:", err);
-
     if (err?.status === 429) {
       return res.status(429).json({
         message: "AI service is temporarily unavailable. Please try again later.",

@@ -34,7 +34,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createLocation(insertLocation: InsertLocation): Promise<Location> {
-    console.log("Inserting location:", insertLocation);
     const [location] = await db.insert(locations).values(insertLocation).onConflictDoNothing({
       target: [locations.userId, locations.latitude, locations.longitude],
     }).returning();

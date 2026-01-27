@@ -7,6 +7,7 @@ import { api } from "@shared/routes";
 import { apiRequest } from "@/lib/queryClient";
 import { AiFillRobot } from "react-icons/ai";
 import { useViewport } from "@/hooks/use-viewport";
+import StringToHtml from "./StringToHtml";
 
 type Props = {
     weather: {
@@ -22,6 +23,8 @@ export function WeatherChat({ open, onClose, weather }: Props) {
     const [topMessages, setTopMessages] = useState<ChatMessage[]>([]);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [maxUp, setMaxUp] = useState<number>(-300);
+    const [input, setInput] = useState("");
+    const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
     const maxDown = 20;
 
     const [activeCategory, setActiveCategory] = useState<Category | null>(null);
@@ -30,6 +33,15 @@ export function WeatherChat({ open, onClose, weather }: Props) {
     const [isDragging, setIsDragging] = useState(false);
     const startYRef = useRef(0);
     const startOffsetRef = useRef(0);
+    const chatRef = useRef<HTMLDivElement | null>(null);
+
+    const scrollToTop = () => {
+        chatRef.current?.scrollTo({
+            top: 0,
+            behavior: "smooth",
+        });
+    };
+
 
     const { vh, vw } = useViewport();
     useEffect(() => {
@@ -48,9 +60,12 @@ export function WeatherChat({ open, onClose, weather }: Props) {
 
     const handleCategoryClick = (category: Category) => {
         setActiveCategory(category);
+        scrollToTop();
     };
 
     const askQuestion = async (question: string) => {
+        setCurrentQuestion(question);
+        scrollToTop();
         setActiveCategory(null);
         setLoading(true);
 
@@ -69,7 +84,8 @@ export function WeatherChat({ open, onClose, weather }: Props) {
 
             // 🔝 Insert at TOP
             setTopMessages((prev) => [...newPair, ...prev]);
-        } catch {
+            scrollToTop();
+        } catch (err) {
             setTopMessages((prev) => [
                 {
                     role: "assistant",
@@ -177,7 +193,7 @@ export function WeatherChat({ open, onClose, weather }: Props) {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 flex flex-col px-4">
+                <div className="flex-1 flex flex-col px-4 h-[75%] md:h-auto">
                     {/* DOUBLE GAP below header 👇 */}
                     <div className="mt-6 mb-6 flex flex-wrap gap-2">
                         {CATEGORIES.map((cat) => (
@@ -186,6 +202,7 @@ export function WeatherChat({ open, onClose, weather }: Props) {
                                 size="sm"
                                 variant={activeCategory === cat ? "default" : "outline"}
                                 onClick={() => handleCategoryClick(cat)}
+                                disabled={loading}
                             >
                                 {cat}
                             </Button>
@@ -193,7 +210,7 @@ export function WeatherChat({ open, onClose, weather }: Props) {
                     </div>
 
                     {/* Chat */}
-                    <div className="flex-1 md:max-h-[450px] min-h-0 overflow-y-auto space-y-4 pb-4 pr-1">
+                    <div ref = {chatRef} className="flex-1 max-h-[80%] md:mb-0 md:max-h-[372px] min-h-0 overflow-y-auto space-y-4 pb-4 pr-1">
                         {/* Question options */}
                     {activeCategory && !loading && (
                         <div className="border-t pt-3 pb-4">
@@ -203,7 +220,7 @@ export function WeatherChat({ open, onClose, weather }: Props) {
                                     key={q}
                                     size="sm"
                                     variant="outline"
-                                    className="max-w-full truncate"
+                                    className="max-w-full truncate text-left text-wrap"
                                     onClick={() => askQuestion(q)}
                                 >
                                     {q}
@@ -214,26 +231,31 @@ export function WeatherChat({ open, onClose, weather }: Props) {
 
                         )}
 
-                        {loading && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Thinking…
-                        </div>
-                    )}
+                         {loading && <>
+                            <div
+                                className={`max-w-[100%] md:max-w-[85%] rounded-2xl px-4 py-2 text-sm ml-auto bg-primary/90 text-primary-foreground`}
+                            >
+                                {currentQuestion}
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Thinking…
+                            </div>
+                        </>}
+
                     {/* 🔝 Priority / pinned messages */}
-                    {topMessages.map((msg, i) => (
-                        <div
+                    {topMessages.map((msg, i) => {
+                        const classNameOnRoot = `max-w-[100%] md:max-w-[85%] px-4 pb-2 text-sm mr-auto`;
+                        return (
+                        msg.role === "user"? <div
                         key={`top-${i}`}
-                        className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm
-                            ${
-                            msg.role === "user"
-                                ? "ml-auto bg-primary/90 text-primary-foreground"
-                                : "mr-auto bg-muted border border-primary/20"
-                            }`}
+                        className={`max-w-[100%] md:max-w-[85%] rounded-2xl px-4 py-2 text-sm ml-auto bg-primary/90 text-primary-foreground`}
                         >
                         {msg.content}
-                        </div>
-                    ))}
+                        </div>:
+                        <StringToHtml key = {`top-${i}`} classNameOnRoot = {classNameOnRoot} htmlString={msg.content} />
+                    )})}
+
 
                     {/* Divider */}
                     {topMessages.length > 0 && messages.length > 0 && (
@@ -246,7 +268,7 @@ export function WeatherChat({ open, onClose, weather }: Props) {
                     {messages.map((msg, i) => (
                         <div
                         key={`msg-${i}`}
-                        className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm
+                        className={`max-w-[100%] md:max-w-[85%] rounded-2xl px-4 py-2 text-sm
                             ${
                             msg.role === "user"
                                 ? "ml-auto bg-primary text-primary-foreground"
@@ -258,6 +280,56 @@ export function WeatherChat({ open, onClose, weather }: Props) {
                     ))}
                     </div>
                 </div>
+
+                {/* Bottom Input Bar */}
+                <div className="border-t bg-background px-3 py-3">
+                    <form
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            if (!input.trim() || loading) return;
+                            askQuestion(input.trim());
+                            setInput("");
+                        }}
+                        className="flex items-end gap-2"
+                    >
+                        <div className="flex flex-1 gap-2">
+                            <textarea
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                placeholder="Ask any weather related question…"
+                                rows={1}
+                                disabled={loading}
+                                className="
+                        w-[100%] flex-2 resize-none rounded-xl border
+                        bg-muted/40 px-3 py-2 text-sm
+                        focus:outline-none focus:ring-2 focus:ring-primary
+                        disabled:opacity-60
+                        "
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && !e.shiftKey) {
+                                        e.preventDefault();
+                                        if (!input.trim() || loading) return;
+                                        askQuestion(input.trim());
+                                        setInput("");
+                                    }
+                                }}
+                            />
+                            <Button
+                                type="submit"
+                                size="icon"
+                                disabled={loading || !input.trim()}
+                                className="h-9 w-9 rounded-xl"
+                            >
+                                {loading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <span className="text-sm font-medium">→</span>
+                                )}
+                            </Button>
+                        </div>
+                    </form>
+                </div>
+
             </div>
         </div>
     );
