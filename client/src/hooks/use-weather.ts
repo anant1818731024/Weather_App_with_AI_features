@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 import { type InsertLocation } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 // Types for Open-Meteo responses (simplified for frontend usage)
 export interface WeatherData {
@@ -36,15 +37,17 @@ export interface GeocodingResult {
 }
 
 // === LOCATIONS (Favorites) ===
-
-export function useLocations() {
-  return useQuery({
-    queryKey: [api.locations.list.path.slice(0, -8)],
-    queryFn: async () => {
-      const res = await fetch(api.locations.list.path.slice(0, -8) + "/" + localStorage.getItem("userId"));
+const getLocation = async () => {
+      const res = await apiRequest("GET", api.locations.list.path, undefined, {
+        "Authorization": `Bearer ${localStorage.getItem("token")}`
+      });
       if (!res.ok) throw new Error("Failed to fetch locations");
       return api.locations.list.responses[200].parse(await res.json());
-    },
+    }
+export function useLocations() {
+  return useQuery({
+    queryKey: [api.locations.list.path],
+    queryFn: getLocation,
   });
 }
 
@@ -60,9 +63,10 @@ export function useAddLocation() {
       });
       if (!res.ok) throw new Error("Failed to add location");
       const parsedRes = api.locations.create.responses[201].parse(await res.json());
+      console.log("parsedResponse: ", parsedRes);
       return parsedRes;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.locations.list.path.slice(0, -8)] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.locations.list.path] }),
   });
 }
 
@@ -70,11 +74,13 @@ export function useDeleteLocation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: number) => {
-      const url = api.locations.delete.path.slice(0, -12)+ "/" + id + "/" + localStorage.getItem("userId");
-      const res = await fetch(url, { method: api.locations.delete.method });
+      const url = api.locations.delete.path.slice(0, -4)+ "/" + id;
+      const res = await apiRequest("DELETE", url, undefined, {
+        "Authorization": `Bearer ${localStorage.getItem("token")}`
+      });
       if (!res.ok) throw new Error("Failed to delete location");
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.locations.list.path.slice(0, -8)] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: [api.locations.list.path] }),
   });
 }
 
@@ -84,6 +90,7 @@ export function useForecast(lat: number, lon: number) {
   return useQuery({
     queryKey: [api.weather.forecast.path, lat, lon],
     queryFn: async () => {
+      if(!lat || !lon) throw new Error("Something went wrong");
       const url = `${api.weather.forecast.path}?lat=${lat}&lon=${lon}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch forecast");

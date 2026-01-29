@@ -9,11 +9,14 @@ import Home from "@/pages/Home";
 import AuthPage from "@/pages/AuthPage";
 import ProfilePage from "./pages/ProfilePage";
 import NotFound from "@/pages/not-found";
+import Header from "./components/Header";
+import { ChatBot } from "./components/ChatBot";
+import "./App.css";
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <ProtectedRoute path="/" component={Home} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
@@ -26,7 +29,11 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <TooltipProvider>
-          <Router />
+          <Header />
+          <div className="pt-[64px] pb-[20px]">
+            <Router />
+          </div>
+          <ChatBot/>
           <Toaster />
         </TooltipProvider>
       </AuthProvider>

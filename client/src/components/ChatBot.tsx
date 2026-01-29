@@ -8,23 +8,26 @@ import { apiRequest } from "@/lib/queryClient";
 import { AiFillRobot } from "react-icons/ai";
 import { useViewport } from "@/hooks/use-viewport";
 import StringToHtml from "./StringToHtml";
+import { SearchBar } from "./SearchBar";
+import { GeocodingResult, useForecast } from "@/hooks/use-weather";
+import { Location } from "@shared/schema";
 
-type Props = {
-    weather: {
-        location: string;
-        timestamp: string;
+export function ChatBot() {
+    const DEFAULT_LOC: any = {
+        name: "Delhi",
+        latitude: 28.65195,
+        longitude: 77.23149,
+        country: "India",
+        admin1: "Delhi"
     };
-    open: boolean;
-    onClose: () => void;
-};
-
-
-export function WeatherChat({ open, onClose, weather }: Props) {
+    const [location, setLocation] = useState<GeocodingResult | Location>(DEFAULT_LOC);
+    const {data:weather, isLoading: isLoadingWeather, error} =  useForecast(location.latitude, location.longitude);
     const [topMessages, setTopMessages] = useState<ChatMessage[]>([]);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [maxUp, setMaxUp] = useState<number>(-300);
     const [input, setInput] = useState("");
     const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
+    const [isBotOpen, setIsBotOpen] = useState(false);
     const maxDown = 20;
 
     const [activeCategory, setActiveCategory] = useState<Category | null>(null);
@@ -56,11 +59,28 @@ export function WeatherChat({ open, onClose, weather }: Props) {
         };
         calcBounds();
     }, [vh, vw]);
+    
+      useEffect(() => {
+        if (isBotOpen && vw < 768) {
+          document.body.style.overflow = "hidden";
+        } else {
+          document.body.style.overflow = "";
+        }
+    
+        // cleanup in case component unmounts
+        return () => {
+          document.body.style.overflow = "";
+        };
+      }, [isBotOpen, vw]);
 
 
     const handleCategoryClick = (category: Category) => {
         setActiveCategory(category);
         scrollToTop();
+    };
+
+    const handleLocationSelect = (loc: GeocodingResult | Location) => {
+        setLocation(loc);
     };
 
     const askQuestion = async (question: string) => {
@@ -73,6 +93,7 @@ export function WeatherChat({ open, onClose, weather }: Props) {
             const res = await apiRequest("POST", api.ai.weatherAdvice.path, {
                 question,
                 weather,
+                location,
             });
 
             const data = await res.json();
@@ -132,20 +153,39 @@ export function WeatherChat({ open, onClose, weather }: Props) {
         };
     }, [isDragging]);
 
-
-
-    if (!open) return null;
+    const FloatingBotButton = () => {
+        return <button
+                onClick={() => setIsBotOpen((v) => !v)}
+                className="
+                    fixed bottom-6 right-6 z-50
+                    flex items-center gap-3
+                    px-5 py-3 rounded-full
+                    bg-primary text-primary-foreground
+                    shadow-xl hover:scale-105 active:scale-95
+                    transition-all
+                "
+            >
+                <AiFillRobot className="w-5 h-5" />
+                <span className="hidden md:inline font-semibold">
+                    Weather Assistant
+                </span>
+            </button>
+    }
 
     return (
-        <div
+        <div>
+            {
+                isBotOpen && 
+                <div
             className="
-      fixed inset-0 md:inset-auto
-      md:bottom-24 md:right-6
-      z-50
-      flex md:block
-      bg-background/80 md:bg-transparent
-      backdrop-blur-sm md:backdrop-blur-0
-    "
+            fixed inset-0 md:inset-auto
+            md:bottom-24 md:right-6
+            z-50
+            flex md:block
+            bg-background/80 md:bg-transparent
+            backdrop-blur-sm md:backdrop-blur-0
+            chatbot-container
+            "
     
     style={{
         transform:
@@ -178,15 +218,27 @@ export function WeatherChat({ open, onClose, weather }: Props) {
                                 Weather Assistant
                             </p>
                             <p className="text-xs text-muted-foreground">
-                                {weather.location}
+                                {isLoadingWeather?<Loader2 className="w-4 h-4 animate-spin"/> :location?.name}
                             </p>
                         </div>
+                        <SearchBar
+                            onSelectLocation={(loc) => {
+                                handleLocationSelect(loc);
+                            }}
+                            padding={
+                                { top: "5px", bottom: "5px", left: "5px", right: "5px" }
+                            }
+                            style={{
+                                width: "45%",
+
+                            }}
+                        />
                     </div>
 
                     <Button
                         size="icon"
                         variant="ghost"
-                        onClick={onClose}
+                        onClick={() => setIsBotOpen(false)}
                     >
                         ✕
                     </Button>
@@ -222,6 +274,7 @@ export function WeatherChat({ open, onClose, weather }: Props) {
                                     variant="outline"
                                     className="max-w-full truncate text-left text-wrap"
                                     onClick={() => askQuestion(q)}
+                                    disabled={isLoadingWeather}
                                 >
                                     {q}
                                 </Button>
@@ -317,7 +370,7 @@ export function WeatherChat({ open, onClose, weather }: Props) {
                             <Button
                                 type="submit"
                                 size="icon"
-                                disabled={loading || !input.trim()}
+                                disabled={loading || !input.trim() || isLoadingWeather}
                                 className="h-9 w-9 rounded-xl"
                             >
                                 {loading ? (
@@ -331,6 +384,9 @@ export function WeatherChat({ open, onClose, weather }: Props) {
                 </div>
 
             </div>
+            </div>
+            }
+            <FloatingBotButton/>
         </div>
     );
 

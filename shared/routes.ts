@@ -5,7 +5,7 @@ export const api = {
   locations: {
     list: {
       method: 'GET' as const,
-      path: '/api/locations/:userId',
+      path: '/api/locations',
       responses: {
         200: z.array(z.custom<typeof locations.$inferSelect>()),
       },
@@ -21,7 +21,7 @@ export const api = {
     },
     delete: {
       method: 'DELETE' as const,
-      path: '/api/locations/:id/:userId',
+      path: '/api/locations/:id',
       responses: {
         204: z.void(),
         404: z.object({ message: z.string() }),

@@ -4,9 +4,9 @@ import { buildWeatherPrompt } from "./weather-prompt";
 
 export async function weatherAdvice(req: Request, res: Response) {
   try {
-    const { question, weather } = req.body;
+    const { question, weather, location } = req.body;
 
-    const prompt = buildWeatherPrompt(question, weather);
+    const prompt = buildWeatherPrompt(question, weather, location);
 
     const completion = await openai.chat.completions.create({
       model: "gpt-5-mini",

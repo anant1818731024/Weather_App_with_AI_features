@@ -5,14 +5,16 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import * as auth from "./auth";
 import { weatherAdvice } from "./ai/weather-advice";
+import { Response } from "express";
+import { AuthRequest } from "./auth";
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   // Locations API
-  app.get(api.locations.list.path, async (req, res) => {
-    const userId = Number(req.params.userId);
+  app.get(api.locations.list.path, auth.authMiddleware, async (req: AuthRequest, res: Response) => {
+    const userId = Number(req.user!.id);
 
     if (Number.isNaN(userId)) {
       res.status(400).json({ message: "Invalid userId" });
@@ -25,7 +27,8 @@ export async function registerRoutes(
     try {
       const input = api.locations.create.input.parse(req.body);
       const location = await storage.createLocation(input);
-      res.status(201).json(location);
+      console.log(location);
+      return res.status(201).json(location);
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.message });
@@ -34,9 +37,9 @@ export async function registerRoutes(
     }
   });
 
-  app.delete(api.locations.delete.path, async (req, res) => {
+  app.delete(api.locations.delete.path, auth.authMiddleware, async (req: AuthRequest, res: Response) => {
     const id = parseInt(req.params.id as string);
-    const userId = parseInt(req.params.userId as string);
+    const userId = req.user!.id;
 
     if (isNaN(userId) || isNaN(id)) {
       return res.status(400).json({ message: "location not found" });

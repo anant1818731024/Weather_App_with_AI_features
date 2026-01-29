@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { Search, MapPin, Loader2 } from "lucide-react";
 import { useSearchCities, type GeocodingResult } from "@/hooks/use-weather";
-import { useDebounce } from "@/hooks/use-debounce"; // We'll implement this simple hook inline or separate? Let's assume separate isn't an option and inline it or just not use it if we don't have the file. I'll implement debounce logic inside.
 
 interface SearchBarProps {
   onSelectLocation: (loc: GeocodingResult) => void;
+  padding?: { top: string; bottom: string; left: string; right: string };
+  style?: React.CSSProperties;
 }
 
-export function SearchBar({ onSelectLocation }: SearchBarProps) {
+export function SearchBar({ onSelectLocation, padding, style }: SearchBarProps) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -39,19 +40,25 @@ export function SearchBar({ onSelectLocation }: SearchBarProps) {
   };
 
   return (
-    <div ref={wrapperRef} className="relative w-full z-50">
+    <div ref={wrapperRef} className="relative w-full" style={style}>
       <div className="relative group">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5 transition-colors group-focus-within:text-primary" />
         <input
           type="text"
           placeholder="Search for a city..."
-          className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white/80 backdrop-blur-md border border-white/40 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-medium text-lg placeholder:text-muted-foreground/70"
+          className="h-[49.8px] shadow-sm bg-background w-full rounded-xl px-4 py-6 backdrop-blur-md border border-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-medium text-lg placeholder:text-muted-foreground/70"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
+          style = {{
+            paddingTop: padding?.top,
+            paddingBottom: padding?.bottom,
+            paddingLeft: padding?.left,
+            paddingRight: padding?.right,
+          }}
         />
         {isLoading && (
           <div className="absolute right-4 top-1/2 -translate-y-1/2">
@@ -61,7 +68,7 @@ export function SearchBar({ onSelectLocation }: SearchBarProps) {
       </div>
 
       {isOpen && results && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white/90 backdrop-blur-xl rounded-xl border border-white/50 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="z-40 absolute top-full left-0 right-0 mt-2 bg-white/90 backdrop-blur-xl rounded-xl border border-white/50 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
           <ul className="divide-y divide-black/5">
             {results.map((city) => (
               <li key={city.id}>
@@ -84,7 +91,7 @@ export function SearchBar({ onSelectLocation }: SearchBarProps) {
       )}
       
       {isOpen && query.length > 2 && results && results.length === 0 && !isLoading && (
-        <div className="absolute top-full left-0 right-0 mt-2 p-4 text-center bg-white/90 backdrop-blur-xl rounded-xl border border-white/50 shadow-xl text-muted-foreground">
+        <div className="z-40 absolute top-full left-0 right-0 mt-2 p-4 text-center bg-white/90 backdrop-blur-xl rounded-xl border border-white/50 shadow-xl text-muted-foreground">
           No locations found
         </div>
       )}

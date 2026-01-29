@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, ReactNode, useState } from "react";
 import { useQuery, useMutation, UseMutationResult } from "@tanstack/react-query";
 import { insertUserSchema, type User, type InsertUser, loginSchema, type PublicUser, registerSchema, } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
@@ -15,11 +15,13 @@ type AuthContextType = {
   loginMutation: UseMutationResult<{ user: PublicUser; token: string }, Error, z.infer<typeof loginSchema>>;
   logoutMutation: UseMutationResult<{message: string}, Error, void>;
   registerMutation: UseMutationResult<{ user: PublicUser; token: string }, Error, z.infer<typeof registerSchema>>;
+  loggingOut: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [loggingOut, setLoggingOut] = useState(false);
   const { toast } = useToast();
 
   const setUserInLocalStorage = (
@@ -73,7 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserInLocalStorage(data.user.id, data.user.username);
       queryClient.setQueryData([api.auth.me.path], data.user);
     },
-    onError: (error: Error) => {
+    onError: (error) => {
+      console.log("Login error:", error.message);
       toast({
         title: "Login failed",
         description: error.message,
@@ -106,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const headers: HeadersInit = {
         Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
       };
+      setLoggingOut(true);
       const res = await apiRequest("POST", api.auth.logout.path, undefined, headers);
       return res.json();
     },
@@ -114,12 +118,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("userId");
         localStorage.removeItem("username");
         queryClient.clear();
+        setLoggingOut(false);
         toast({
         title: "Logged out successfully",
         variant: "default",
         });
     },
     onError: (error: Error) => {
+      setLoggingOut(false);
       toast({
         title: "Logout failed",
         description: error.message,
@@ -137,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loginMutation,
         logoutMutation,
         registerMutation,
+        loggingOut,
       }}
     >
       {children}

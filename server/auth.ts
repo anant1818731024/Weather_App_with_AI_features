@@ -119,7 +119,6 @@ export async function login(req: Request, res: Response) {
     .from(users)
     .where(eq(users.username, input.username))
     .limit(1);
-
   if (!user) {
     return res.status(401).json({ message: "Invalid credentials" });
   }

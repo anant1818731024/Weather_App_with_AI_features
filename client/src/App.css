@@ -1,0 +1,11 @@
+.react-select__control{
+  background-color:hsl(var(--background) / var(--tw-bg-opacity, 1));
+  transition: all 150ms ease-in-out;
+  height:49.8px;
+}
+
+.react-select__control:focus{
+  outline: none;
+  border-color: hsl(var(--primary)/0.5);
+  box-shadow: 0 0 0 2px hsl(var(--primary) / 0.2);
+}
