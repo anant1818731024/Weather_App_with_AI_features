@@ -156,14 +156,15 @@ export function ChatBot() {
     const FloatingBotButton = () => {
         return <button
                 onClick={() => setIsBotOpen((v) => !v)}
-                className="
+                className={`
                     fixed bottom-6 right-6 z-50
                     flex items-center gap-3
                     px-5 py-3 rounded-full
                     bg-primary text-primary-foreground
                     shadow-xl hover:scale-105 active:scale-95
                     transition-all
-                "
+                    ${isBotOpen && vw < 768? "hidden": ""}
+                `}
             >
                 <AiFillRobot className="w-5 h-5" />
                 <span className="hidden md:inline font-semibold">
@@ -204,7 +205,7 @@ export function ChatBot() {
                 shadow-2xl
                 flex flex-col
                 border
-                overflow-hidden
+                overflow-hidden 
   "
             >
                 {/* Header */}
