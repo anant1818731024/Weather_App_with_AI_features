@@ -230,7 +230,7 @@ export default function AuthPage() {
             Your personal weather station.
           </h2>
           <p className="text-xl opacity-90 leading-relaxed max-w-lg">
-            Save locations, track forecasts, and stay ahead of the elements with our beautifully designed dashboard.
+            Let AI help you in Weather, Save locations, track forecasts, and stay ahead of the elements with AI integrated chatbot.
           </p>
         </div>
         <div className="absolute inset-0 opacity-10">
