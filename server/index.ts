@@ -3,6 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { getDatabaseHost, verifyDatabaseConnection } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
@@ -60,6 +61,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  console.log(`Database host: ${getDatabaseHost(process.env.DATABASE_URL!)}`);
+  try {
+    await verifyDatabaseConnection();
+  } catch (err) {
+    console.error("Database connection failed at startup:", err);
+    process.exit(1);
+  }
+
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
