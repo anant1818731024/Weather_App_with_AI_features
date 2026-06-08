@@ -3,7 +3,11 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
-import { getDatabaseHost, verifyDatabaseConnection } from "./db";
+import {
+  getDatabaseConnectionInfo,
+  getDatabaseHost,
+  verifyDatabaseConnection,
+} from "./db";
 
 const app = express();
 const httpServer = createServer(app);
@@ -60,13 +64,37 @@ app.use((req, res, next) => {
   next();
 });
 
+function logDatabaseUrlHint() {
+  const url = process.env.DATABASE_URL!;
+  const host = getDatabaseHost(url);
+  const info = getDatabaseConnectionInfo(url);
+  console.log(
+    `Database target: host=${info.host} port=${info.port} user=${info.user}`,
+  );
+  if (host.startsWith("db.") && host.endsWith(".supabase.co")) {
+    console.error(
+      "DATABASE_URL uses Supabase direct host (db.*.supabase.co). " +
+        "On Render, use the Session pooler URL from Supabase, e.g. " +
+        "postgres.PROJECT_REF@aws-1-REGION.pooler.supabase.com:5432/postgres?sslmode=require",
+    );
+  }
+  if (host === "localhost" || host === "127.0.0.1") {
+    console.error(
+      "DATABASE_URL points to localhost. Set the Supabase Session pooler URL in Render Environment.",
+    );
+  }
+}
+
 (async () => {
-  console.log(`Database host: ${getDatabaseHost(process.env.DATABASE_URL!)}`);
+  logDatabaseUrlHint();
   try {
     await verifyDatabaseConnection();
   } catch (err) {
     console.error("Database connection failed at startup:", err);
-    process.exit(1);
+    console.error(
+      "Auth routes will not work until DATABASE_URL is fixed on Render. " +
+        "Use the same Session pooler URL that worked for npm run db:push locally.",
+    );
   }
 
   await registerRoutes(httpServer, app);

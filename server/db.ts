@@ -10,53 +10,118 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-const databaseUrl = process.env.DATABASE_URL;
+function parseDatabaseUrl(url: string): URL {
+  return new URL(url.replace(/^postgresql:/, "postgres:"));
+}
 
 export function getDatabaseHost(url: string): string {
   try {
-    return new URL(url.replace(/^postgresql:/, "postgres:")).hostname;
+    return parseDatabaseUrl(url).hostname;
   } catch {
     return "(invalid DATABASE_URL)";
   }
 }
 
-function useSsl(url: string): boolean | { rejectUnauthorized: boolean } {
-  if (
-    process.env.NODE_ENV === "production" ||
-    url.includes("supabase") ||
-    url.includes("render.com") ||
-    /sslmode=(require|verify-full)/.test(url)
-  ) {
-    return { rejectUnauthorized: false };
+export function getDatabaseConnectionInfo(url: string): {
+  host: string;
+  port: string;
+  user: string;
+  isSupabase: boolean;
+  isPooler: boolean;
+} {
+  try {
+    const parsed = parseDatabaseUrl(url);
+    const host = parsed.hostname;
+    return {
+      host,
+      port: parsed.port || "5432",
+      user: parsed.username,
+      isSupabase: host.includes("supabase"),
+      isPooler: host.includes("pooler.supabase.com"),
+    };
+  } catch {
+    return {
+      host: "(invalid)",
+      port: "?",
+      user: "?",
+      isSupabase: false,
+      isPooler: false,
+    };
   }
-  return false;
 }
 
-// Supabase pooler (PgBouncer) closes connections that use prepared statements.
-function usesPgBouncer(url: string): boolean {
-  return (
-    url.includes("pooler.supabase.com") ||
-    url.includes("pgbouncer=true") ||
-    url.includes(":6543/")
-  );
+/** Ensure Supabase URLs include params node-pg + pooler expect. */
+function normalizeDatabaseUrl(url: string): string {
+  if (!url.includes("supabase")) {
+    return url;
+  }
+
+  const parsed = parseDatabaseUrl(url);
+
+  if (!parsed.searchParams.has("sslmode")) {
+    parsed.searchParams.set("sslmode", "require");
+  }
+
+  // Transaction pooler (6543) requires pgbouncer mode for node-pg / Drizzle.
+  if (parsed.port === "6543" && !parsed.searchParams.has("pgbouncer")) {
+    parsed.searchParams.set("pgbouncer", "true");
+  }
+
+  return parsed.toString().replace(/^postgres:/, "postgresql:");
 }
 
-const dbHost = getDatabaseHost(databaseUrl);
-if (dbHost.startsWith("db.") && dbHost.endsWith(".supabase.co")) {
+function buildPoolConfig(url: string): pg.PoolConfig & { prepare?: boolean } {
+  const normalizedUrl = normalizeDatabaseUrl(url);
+  const { isSupabase, isPooler } = getDatabaseConnectionInfo(normalizedUrl);
+
+  const config: pg.PoolConfig & { prepare?: boolean } = {
+    connectionString: normalizedUrl,
+    max: 5,
+    connectionTimeoutMillis: 15_000,
+    idleTimeoutMillis: 30_000,
+    keepAlive: true,
+  };
+
+  if (isSupabase) {
+    // Required for Supabase pooler (Supavisor / PgBouncer).
+    config.prepare = false;
+    // Let ?sslmode=require in the URL handle TLS for Supabase.
+    // An extra ssl object here can cause "Connection terminated unexpectedly".
+  } else if (
+    process.env.NODE_ENV === "production" ||
+    url.includes("render.com")
+  ) {
+    config.ssl = { rejectUnauthorized: false };
+  }
+
+  if (isPooler && !normalizedUrl.includes("pgbouncer=true") && normalizedUrl.includes(":5432")) {
+    console.log("Using Supabase session pooler (port 5432)");
+  }
+
+  return config;
+}
+
+const databaseUrl = process.env.DATABASE_URL;
+const connectionInfo = getDatabaseConnectionInfo(databaseUrl);
+
+if (
+  connectionInfo.host.startsWith("db.") &&
+  connectionInfo.host.endsWith(".supabase.co")
+) {
   console.warn(
-    "DATABASE_URL uses Supabase direct connection (db.*.supabase.co). " +
-      "Use the Session pooler URL (pooler.supabase.com) on Render instead.",
+    "DATABASE_URL uses Supabase direct host (db.*.supabase.co). " +
+      "Use the Session pooler URL (pooler.supabase.com) instead.",
   );
 }
 
-export const pool = new Pool({
-  connectionString: databaseUrl,
-  ssl: useSsl(databaseUrl),
-  max: 10,
-  connectionTimeoutMillis: 15_000,
-  idleTimeoutMillis: 30_000,
-  ...(usesPgBouncer(databaseUrl) && { prepare: false }),
-});
+if (connectionInfo.isSupabase && connectionInfo.user === "postgres") {
+  console.warn(
+    "DATABASE_URL username is 'postgres'. For Supabase pooler use postgres.PROJECT_REF " +
+      "(e.g. postgres.lhflirrgvaprhelnanqn).",
+  );
+}
+
+export const pool = new Pool(buildPoolConfig(databaseUrl));
 
 pool.on("error", (err) => {
   console.error("Unexpected database pool error:", err.message);
@@ -68,7 +133,9 @@ export async function verifyDatabaseConnection(): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query("SELECT 1");
-    console.log(`Database connected (${dbHost}, ssl=${!!useSsl(databaseUrl)})`);
+    console.log(
+      `Database connected (host=${connectionInfo.host}, port=${connectionInfo.port}, user=${connectionInfo.user})`,
+    );
   } finally {
     client.release();
   }
